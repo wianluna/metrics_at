@@ -1,0 +1,83 @@
+# Default parameters for adversarial training LinearityIQA (p1q2)
+label_strategy: ssim
+eval_only: no
+seed: 5102023
+checkpoint_path: null
+
+model:
+  arch: resnext101_32x8d
+  pool: avg
+  use_bn_end: no
+  P6: 1
+  P7: 1
+
+data:
+  dataset: KonIQ-10k
+  data_info: /home/a.chistyakova/metric-at/data/KonIQ-10kinfo.mat
+  directory: /home/a.chistyakova/space-1/koniq10k
+  resize_size: !!python/tuple [498, 664]
+  train_ratio: 0.7006849995036235
+  train_and_val_ratio: 0.7999602898838479
+  normalize: no
+
+loss:
+  loss_type: norm-in-norm
+  alpha: !!python/tuple [1.0, 0.0]
+  beta: !!python/tuple [0.1, 0.1, 1.0]
+  p: 1.0
+  q: 2.0
+  monotonicity_regularization: no
+  gamma: 0.1
+  detach: no
+
+log:
+  directory: /home/a.chistyakova/metric-at/metrics_logs/
+
+optimizer:
+  learning_rate: 0.001
+  ft_lr_ratio: 0.1
+  weight_decay: 0.0
+
+lr_scheduler:
+  type: step
+  lr_decay: 0.1
+  overall_lr_decay: 0.01
+
+train:
+  epochs: 30
+  num_workers: 4
+  batch_size: 32
+  val_criterion: SROCC
+
+attack:
+  train:
+    type: fgsm
+    params:
+      eps: 4.0
+      alpha: 5.0
+      mode: zero
+  test:
+    -
+      type: fgsm
+      params:
+        eps: 2.0
+        alpha: 2.5
+        mode: zero
+    -
+      type: fgsm
+      params:
+        eps: 4.0
+        alpha: 5.0
+        mode: zero
+    -
+      type: fgsm
+      params:
+        eps: 8.0
+        alpha: 10.0
+        mode: zero
+    -
+      type: fgsm
+      params:
+        eps: 10.0
+        alpha: 12.5
+        mode: zero
