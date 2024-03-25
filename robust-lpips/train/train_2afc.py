@@ -50,47 +50,45 @@ def train(model, attack, num_epochs, num_epochs_decay, train_dataloader):
             print(f"new lr: {lr}")
             for param_group in optimizer.param_groups:
                 param_group["lr"] = lr
-        #torch.save(model.state_dict(), model_save_path)
-
-parser = argparse.ArgumentParser()
-
-parser.add_argument('--train_datasets', type=str, nargs='+', default=['train/traditional','train/cnn','train/mix'], help='datasets to train on')
-parser.add_argument('--dataroot', type=str, default=".", help='dataset root')
-
-parser.add_argument('--save_dir', type=str, default="./models", help='directory to save models in')
-parser.add_argument('--train_attacks', type=str, default=["FGSM", "PGD"], help='attack types for training')
-parser.add_argument('--train_epses', type=float, nargs='+', default=[2, 4, 8, 10], help='attack epsilons for training')
-
-parser.add_argument('--train_dummy', action='store_true', help="evaluate default lpips without adversarial training")
-parser.add_argument('--test_dummy', action='store_true', help="test model response without attacks")
-
-parser.add_argument('--batch_size', type=int, default=32, help='batch size')
-parser.add_argument('--num_workers', type=int, default=16, help='number of workers')
-parser.add_argument('--pretrained', action='store_true', help="use pretrained model")
-
-parser.add_argument('--nepoch', type=int, default=1, help='# epochs at base learning rate')
-parser.add_argument('--nepoch_decay', type=int, default=1, help='# additional epochs at linearly learning rate')
 
 
-opt = parser.parse_args()
+def train_models(opt):
+    train_dataloader = CreateDataLoader(opt.train_datasets, data_root=opt.dataroot, batch_size=opt.batch_size, serial_batches=False, nThreads=opt.num_workers)
+
+    train_attacks = []
+
+    if opt.train_dummy:
+        train_attacks.append(NoAttack())
+
+    for train_attack_cls in opt.train_attacks:
+        for train_eps in opt.train_epses:
+            attack_cls = getattr(attacks, train_attack_cls)
+            attack = attack_cls(eps=train_eps / 255, proba=0.5)
+            train_attacks.append(attack)
+
+    for train_attack in train_attacks:
+        print(f"training model {train_attack.get_name()}")
+        model = lpips.LPIPS(pretrained=opt.pretrained, pnet_rand=not opt.pretrained)
+        train(model, train_attack, opt.nepoch, opt.nepoch_decay, train_dataloader)
+        model_save_path = os.path.join(opt.save_dir, train_attack.get_name() + ".pt")
+        torch.save(model.state_dict(), model_save_path)
 
 
-train_dataloader = CreateDataLoader(opt.train_datasets, data_root=opt.dataroot, batch_size=opt.batch_size, serial_batches=False, nThreads=opt.num_workers)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
 
-train_attacks = []
+    parser.add_argument('--train_datasets', type=str, nargs='+', default=['train/traditional','train/cnn','train/mix'], help='datasets to train on')
+    parser.add_argument('--dataroot', type=str, default=".", help='dataset root')
+    parser.add_argument('--save_dir', type=str, default="./models", help='directory to save models in')
+    parser.add_argument('--train_attacks', type=str, default=["FGSM", "PGD"], help='attack types for training')
+    parser.add_argument('--train_epses', type=float, nargs='+', default=[2, 4, 8, 10], help='attack epsilons for training')
+    parser.add_argument('--train_dummy', action='store_true', help="evaluate default lpips without adversarial training")
+    parser.add_argument('--test_dummy', action='store_true', help="test model response without attacks")
+    parser.add_argument('--batch_size', type=int, default=32, help='batch size')
+    parser.add_argument('--num_workers', type=int, default=16, help='number of workers')
+    parser.add_argument('--pretrained', action='store_true', help="use pretrained model")
+    parser.add_argument('--nepoch', type=int, default=1, help='# epochs at base learning rate')
+    parser.add_argument('--nepoch_decay', type=int, default=1, help='# additional epochs at linearly learning rate')
+    opt = parser.parse_args()
 
-if opt.train_dummy:
-    train_attacks.append(NoAttack())
-
-for train_attack_cls in opt.train_attacks:
-    for train_eps in opt.train_epses:
-        attack_cls = getattr(attacks, train_attack_cls)
-        attack = attack_cls(eps=train_eps / 255, proba=0.5)
-        train_attacks.append(attack)
-
-for train_attack in train_attacks:
-    print(f"training model {train_attack.get_name()}")
-    model = lpips.LPIPS(pretrained=opt.pretrained, pnet_rand=not opt.pretrained)
-    train(model, train_attack, opt.nepoch, opt.nepoch_decay, train_dataloader)
-    model_save_path = os.path.join(opt.save_dir, train_attack.get_name() + ".pt")
-    torch.save(model.state_dict(), model_save_path)
+    train_models(opt)
