@@ -1,13 +1,9 @@
 import numpy as np
 import tqdm
 from common.attacks import NoAttack
-from torch.autograd import Variable
-import torch
 
 
-
-def score_2afc_dataset(data_loader, model, attack=None):
-    device = torch.device('cuda:1') if torch.cuda.is_available() else torch.device("cpu")
+def score_2afc_dataset(data_loader, model, device, attack=None):
     if attack is None:
         attack = NoAttack()
 

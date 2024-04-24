@@ -105,6 +105,34 @@ class FreeFGSM(BaseFGSM):
         return f"FreeFGSM_{int(self.eps * 255)}_255"
 
 
+class IFGSM(Attack):
+    def __init__(self, eps, step=1/255, num_iters=10, proba=0.5):
+        super().__init__(proba)
+        self.eps = 10/255
+        self.step = 1/255
+        self.num_iters = 10
+
+    def attack_impl(self, model, ref, dist, direction):
+        if self.eps == 0:
+            return dist
+        delta = torch.zeros_like(dist)
+        delta.requires_grad_(True)
+        for i in range(self.num_iters):
+            outs = model.forward(ref, dist + delta)
+            grad = torch.autograd.grad(outs.sum(), [delta])[0].detach()
+            if isinstance(direction, bool):
+                dir = -1 if not direction else 1
+                delta.data -= self.step * dir * torch.sign(grad)
+            else:
+                dir = direction * 2 - 1
+                delta.data -= self.step * dir[:, None, None, None] * torch.sign(grad)
+            delta.data.clamp_(-self.eps, self.eps)
+        return delta + dist
+
+    def get_name(self):
+        return f"IFGSM_{int(self.eps * 255)}_255"
+
+
 class PGD(Attack):
     def __init__(self, eps, step=1/255, num_iters=10, proba=0.5):
         super().__init__(proba)
